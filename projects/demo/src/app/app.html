@@ -1,0 +1,106 @@
+<div class="demo-container">
+  <header class="demo-header">
+    <h1>📝 NgxLexicalEditor Demo</h1>
+    <p>A powerful WYSIWYG editor with floating toolbar for Angular 20+</p>
+  </header>
+
+  <main class="demo-content">
+    <section class="editor-section">
+      <div class="editor-header">
+        <h2>Editor</h2>
+        <div class="editor-actions">
+          <button class="btn btn-secondary" (click)="insertSampleText()">
+            Insert Sample Text
+          </button>
+          <button class="btn btn-secondary" (click)="getHtmlContent()">
+            Get HTML
+          </button>
+          <button class="btn btn-danger" (click)="clearContent()">
+            Clear
+          </button>
+        </div>
+      </div>
+      
+      <div class="editor-wrapper">
+        <ngx-lexical-editor
+          [config]="editorConfig"
+          (contentChange)="onContentChange($event)"
+          (selectionChange)="onSelectionChange($event)"
+        />
+      </div>
+      
+      <div class="instructions">
+        <h3>💡 How to use:</h3>
+        <ol>
+          <li>Type or paste content in the editor above</li>
+          <li>Select any text to reveal the floating toolbar</li>
+          <li>Use toolbar buttons to format your text</li>
+        </ol>
+      </div>
+    </section>
+
+    <aside class="info-section">
+      <div class="info-card">
+        <h3>📊 Content Preview</h3>
+        <div class="content-preview">
+          @if (content()) {
+            <p>{{ content() }}</p>
+          } @else {
+            <p class="empty-state">No content yet...</p>
+          }
+        </div>
+        <div class="char-count">
+          Characters: {{ content().length }}
+        </div>
+      </div>
+
+      @if (formatState()) {
+        <div class="info-card">
+          <h3>🎨 Current Format</h3>
+          <div class="format-info">
+            <div class="format-row">
+              <span class="label">Bold:</span>
+              <span class="value" [class.active]="formatState()?.isBold">{{ formatState()?.isBold ? 'Yes' : 'No' }}</span>
+            </div>
+            <div class="format-row">
+              <span class="label">Italic:</span>
+              <span class="value" [class.active]="formatState()?.isItalic">{{ formatState()?.isItalic ? 'Yes' : 'No' }}</span>
+            </div>
+            <div class="format-row">
+              <span class="label">Underline:</span>
+              <span class="value" [class.active]="formatState()?.isUnderline">{{ formatState()?.isUnderline ? 'Yes' : 'No' }}</span>
+            </div>
+            <div class="format-row">
+              <span class="label">Font:</span>
+              <span class="value">{{ formatState()?.fontFamily }}</span>
+            </div>
+            <div class="format-row">
+              <span class="label">Size:</span>
+              <span class="value">{{ formatState()?.fontSize }}</span>
+            </div>
+            <div class="format-row">
+              <span class="label">Alignment:</span>
+              <span class="value">{{ formatState()?.textAlign }}</span>
+            </div>
+          </div>
+        </div>
+      }
+
+      <div class="info-card">
+        <h3>✨ Features</h3>
+        <ul class="features-list">
+          <li>✅ Bold, Italic, Underline, Strikethrough</li>
+          <li>✅ Font Family Selection</li>
+          <li>✅ Font Size Control</li>
+          <li>✅ Text & Background Colors</li>
+          <li>✅ Text Alignment</li>
+          <li>✅ Letter Spacing</li>
+          <li>✅ Line Height</li>
+          <li>✅ Paragraph Spacing</li>
+          <li>✅ Link Insertion</li>
+          <li>✅ Emoji Picker</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+</div>

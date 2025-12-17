@@ -1,0 +1,26 @@
+{
+  "name": "ngx-lexical-editor",
+  "version": "0.0.1",
+  "description": "Angular WYSIWYG editor library with floating toolbar using Lexical framework",
+  "keywords": [
+    "angular",
+    "wysiwyg",
+    "lexical",
+    "rich-text-editor",
+    "editor",
+    "floating-toolbar"
+  ],
+  "peerDependencies": {
+    "@angular/common": ">=20.0.0",
+    "@angular/core": ">=20.0.0",
+    "lexical": "^0.21.0",
+    "@lexical/selection": "^0.21.0",
+    "@lexical/utils": "^0.21.0",
+    "@lexical/link": "^0.21.0",
+    "@lexical/rich-text": "^0.21.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}

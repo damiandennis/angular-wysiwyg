@@ -1,0 +1,53 @@
+{
+  "name": "angular-wysiwyg",
+  "version": "1.0.0",
+  "scripts": {
+    "ng": "ng",
+    "build": "ng build ngx-lexical-editor",
+    "build:watch": "ng build ngx-lexical-editor --watch",
+    "test": "ng test ngx-lexical-editor",
+    "start": "ng serve demo",
+    "start:demo": "ng serve demo --open"
+  },
+  "keywords": [
+    "angular",
+    "wysiwyg",
+    "lexical",
+    "rich-text-editor",
+    "editor"
+  ],
+  "author": "",
+  "license": "MIT",
+  "description": "Angular WYSIWYG editor library using Lexical framework",
+  "dependencies": {
+    "@angular/common": ">=20.0.0",
+    "@angular/compiler": "^21.0.0",
+    "@angular/core": ">=20.0.0",
+    "@angular/forms": "^21.0.5",
+    "@angular/platform-browser": "^21.0.0",
+    "@angular/platform-browser-dynamic": "^21.0.0",
+    "@lexical/link": "^0.21.0",
+    "@lexical/rich-text": "^0.21.0",
+    "@lexical/selection": "^0.21.0",
+    "@lexical/utils": "^0.21.0",
+    "bootstrap": "^5.3.8",
+    "lexical": "^0.21.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.6.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^21.0.0",
+    "@angular/build": "^21.0.0",
+    "@angular/cli": "^21.0.0",
+    "@angular/compiler-cli": "^21.0.0",
+    "jsdom": "^27.1.0",
+    "ng-packagr": "^21.0.0",
+    "typescript": "~5.9.0",
+    "vitest": "^4.0.8"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=20.0.0",
+    "@angular/core": ">=20.0.0"
+  }
+}
