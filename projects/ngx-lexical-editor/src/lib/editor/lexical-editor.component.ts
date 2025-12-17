@@ -10,8 +10,9 @@ import {
   signal,
   computed,
   ChangeDetectionStrategy,
+  Inject,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { DOCUMENT, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
   createEditor, 
@@ -24,8 +25,6 @@ import {
   TextFormatType, 
   $createParagraphNode, 
   $createTextNode,
-  $isTextNode,
-  TextNode,
   $setSelection,
   RangeSelection,
   COMMAND_PRIORITY_LOW,
@@ -33,7 +32,7 @@ import {
 import { registerRichText } from '@lexical/rich-text';
 import { $patchStyleText, $getSelectionStyleValueForProperty } from '@lexical/selection';
 import { mergeRegister, $getNearestNodeOfType } from '@lexical/utils';
-import { $createLinkNode, $isLinkNode, LinkNode, TOGGLE_LINK_COMMAND, $toggleLink } from '@lexical/link';
+import { LinkNode, TOGGLE_LINK_COMMAND, $toggleLink } from '@lexical/link';
 import { FloatingToolbarComponent } from '../toolbar/floating-toolbar.component';
 
 export interface EditorConfig {
@@ -81,6 +80,8 @@ export interface TextFormatState {
           (formatCommand)="executeFormatCommand($event)"
           (insertText)="insertText($event)"
           (insertLink)="insertLink($event)"
+          (toolbarMouseDown)="onToolbarInteractionStart()"
+          (toolbarMouseUp)="onToolbarInteractionEnd()"
         />
       }
       
@@ -136,6 +137,12 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
   private _config = signal<EditorConfig>({});
   private editor: LexicalEditor | null = null;
   private cleanupFns: (() => void)[] = [];
+  private shadowRoot: ShadowRoot | null = null;
+  private originalGetSelection: typeof document.getSelection | null = null;
+  private isInteractingWithToolbar = false;
+  private storedSelection: RangeSelection | null = null;
+
+  constructor(@Inject(DOCUMENT) private document: Document) {}
 
   placeholder = computed(() => this._config().placeholder ?? 'Start typing...');
   editable = computed(() => this._config().editable !== false);
@@ -163,13 +170,80 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
   });
 
   ngAfterViewInit(): void {
+    this.setupShadowDomSupport();
     this.injectEditorStyles();
     this.initializeEditor();
   }
 
   ngOnDestroy(): void {
     this.cleanupFns.forEach(fn => fn());
+    this.restoreGetSelection();
     this.editor = null;
+  }
+
+  /**
+   * Set up Shadow DOM support by patching getSelection at window level.
+   * Uses multiple strategies to try to make selection work in Shadow DOM.
+   */
+  private setupShadowDomSupport(): void {
+    const container = this.editorContainerRef.nativeElement;
+    const root = container.getRootNode();
+    
+    if (root instanceof ShadowRoot) {
+      this.shadowRoot = root;
+      
+      // Store original getSelection
+      const originalDocGetSelection = this.document.getSelection.bind(this.document);
+      this.originalGetSelection = originalDocGetSelection;
+      
+      const shadowRoot = this.shadowRoot;
+      
+      // Create a patched getSelection that works with Shadow DOM
+      // Only use shadowRoot.getSelection() which is the most reliable when available
+      const patchedGetSelection = (): Selection | null => {
+        // Strategy 1: Try shadowRoot.getSelection() (WebKit/Safari and newer Chrome)
+        if ('getSelection' in shadowRoot) {
+          try {
+            const shadowSelection = (shadowRoot as any).getSelection();
+            if (shadowSelection && shadowSelection.rangeCount > 0) {
+              return shadowSelection;
+            }
+          } catch (e) {
+            // shadowRoot.getSelection not available
+          }
+        }
+        
+        // Fall back to document.getSelection
+        return originalDocGetSelection();
+      };
+      
+      // Patch both window.getSelection and document.getSelection
+      (window as any).getSelection = patchedGetSelection;
+      (this.document as any).getSelection = patchedGetSelection;
+      
+      // Listen for selection changes
+      const selectionChangeHandler = () => {
+        if (this.editor) {
+          this.editor.update(() => {});
+        }
+      };
+      
+      this.document.addEventListener('selectionchange', selectionChangeHandler);
+      this.cleanupFns.push(() => {
+        this.document.removeEventListener('selectionchange', selectionChangeHandler);
+      });
+    }
+  }
+
+  /**
+   * Restore the original getSelection method
+   */
+  private restoreGetSelection(): void {
+    if (this.originalGetSelection) {
+      (this.document as any).getSelection = this.originalGetSelection;
+      (window as any).getSelection = this.originalGetSelection;
+      this.originalGetSelection = null;
+    }
   }
 
   /**
@@ -224,7 +298,9 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
     const config = {
       namespace: 'NgxLexicalEditor',
       theme,
-      onError: (error: Error) => console.error(error),
+      onError: (error: Error) => {
+        console.error(error);
+      },
       nodes: [LinkNode],
     };
 
@@ -251,6 +327,115 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
 
     this.cleanupFns.push(cleanup);
 
+    // Shadow DOM workaround: Handle input events manually
+    if (this.shadowRoot) {
+      // Track if we're in a text insertion mode
+      let pendingText = '';
+      let insertionTimeout: number | null = null;
+      
+      const beforeInputHandler = (event: InputEvent) => {
+        // Only handle insertText events (typing characters)
+        if (event.inputType === 'insertText' && event.data) {
+          // MUST prevent default and stop propagation immediately
+          // to prevent Lexical's own handler from also processing this
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          
+          pendingText += event.data;
+          
+          // Batch rapid keystrokes together
+          if (insertionTimeout) {
+            clearTimeout(insertionTimeout);
+          }
+          
+          insertionTimeout = window.setTimeout(() => {
+            const textToInsert = pendingText;
+            pendingText = '';
+            insertionTimeout = null;
+            
+            if (this.editor && textToInsert) {
+              this.editor.update(() => {
+                const selection = $getSelection();
+                if ($isRangeSelection(selection)) {
+                  // Insert text at current selection
+                  selection.insertText(textToInsert);
+                } else {
+                  // No selection, create one at the end
+                  const root = $getRoot();
+                  const lastChild = root.getLastChild();
+                  if (lastChild) {
+                    root.selectEnd();
+                    const newSelection = $getSelection();
+                    if ($isRangeSelection(newSelection)) {
+                      newSelection.insertText(textToInsert);
+                    }
+                  }
+                }
+              });
+            }
+          }, 0); // Execute immediately but after current call stack
+        }
+      };
+      
+      // Handle special keys via keydown
+      const keydownHandler = (event: KeyboardEvent) => {
+        if (!this.editor) return;
+        
+        // Only intercept if not a modifier key combination (allow Ctrl+C, Ctrl+V, etc.)
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+          return;
+        }
+        
+        // Handle Enter key
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.editor.update(() => {
+            const selection = $getSelection();
+            if ($isRangeSelection(selection)) {
+              selection.insertParagraph();
+            }
+          });
+          return;
+        }
+        
+        // Handle Backspace
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.editor.update(() => {
+            const selection = $getSelection();
+            if ($isRangeSelection(selection)) {
+              selection.deleteCharacter(true);
+            }
+          });
+          return;
+        }
+        
+        // Handle Delete
+        if (event.key === 'Delete') {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.editor.update(() => {
+            const selection = $getSelection();
+            if ($isRangeSelection(selection)) {
+              selection.deleteCharacter(false);
+            }
+          });
+          return;
+        }
+      };
+      
+      // Use capture phase to intercept before Lexical's handlers
+      rootElement.addEventListener('beforeinput', beforeInputHandler, true);
+      rootElement.addEventListener('keydown', keydownHandler, true);
+      this.cleanupFns.push(() => {
+        rootElement.removeEventListener('beforeinput', beforeInputHandler, true);
+        rootElement.removeEventListener('keydown', keydownHandler, true);
+        if (insertionTimeout) clearTimeout(insertionTimeout);
+      });
+    }
+
     // Set initial content if provided
     const initialContent = this._config().initialContent;
     if (initialContent) {
@@ -269,18 +454,37 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
 
   onSelectionChange(): void {
     if (!this.editor) return;
+    
+    // Don't update selection state if user is interacting with toolbar
+    if (this.isInteractingWithToolbar) return;
 
     this.editor.getEditorState().read(() => {
       const selection = $getSelection();
       
       if ($isRangeSelection(selection) && !selection.isCollapsed()) {
         this.hasSelection.set(true);
+        this.storedSelection = selection.clone();
         this.updateFormatState(selection);
         this.updateToolbarPosition();
       } else {
         this.hasSelection.set(false);
+        this.storedSelection = null;
       }
     });
+  }
+
+  /**
+   * Called by toolbar when user starts interacting with it (mousedown)
+   */
+  onToolbarInteractionStart(): void {
+    this.isInteractingWithToolbar = true;
+  }
+
+  /**
+   * Called by toolbar when user finishes interacting with it
+   */
+  onToolbarInteractionEnd(): void {
+    this.isInteractingWithToolbar = false;
   }
 
   private updateFormatState(selection: ReturnType<typeof $getSelection>): void {
@@ -326,8 +530,21 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
     this.selectionChange.emit(this.formatState());
   }
 
+  /**
+   * Get the current selection, using shadow root selection if available
+   */
+  private getSelection(): Selection | null {
+    if (this.shadowRoot && 'getSelection' in this.shadowRoot) {
+      const shadowSelection = (this.shadowRoot as any).getSelection();
+      if (shadowSelection && shadowSelection.rangeCount > 0) {
+        return shadowSelection;
+      }
+    }
+    return this.document.getSelection();
+  }
+
   private getComputedStyle(property: string): string {
-    const selection = window.getSelection();
+    const selection = this.getSelection();
     if (!selection || selection.rangeCount === 0) return '';
     
     const range = selection.getRangeAt(0);
@@ -338,7 +555,7 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
   }
 
   private updateToolbarPosition(): void {
-    const selection = window.getSelection();
+    const selection = this.getSelection();
     if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
@@ -368,6 +585,9 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
 
   executeFormatCommand(command: { type: string; value?: string }): void {
     if (!this.editor) return;
+
+    // Reset interaction flag so selection changes can be detected again
+    this.isInteractingWithToolbar = false;
 
     // Handle text format commands outside of update() since dispatchCommand triggers its own update
     switch (command.type) {
@@ -445,6 +665,9 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
   insertText(text: string): void {
     if (!this.editor) return;
 
+    // Reset interaction flag so selection changes can be detected again
+    this.isInteractingWithToolbar = false;
+
     this.editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
@@ -456,13 +679,28 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
   insertLink(url: string): void {
     if (!this.editor) return;
 
-    if (url) {
-      // Use TOGGLE_LINK_COMMAND to properly wrap selected text with a link
-      this.editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
-    } else {
-      // Remove link if URL is empty
-      this.editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
-    }
+    this.editor.update(() => {
+      // First, try to restore the stored selection if current selection is invalid
+      let selection = $getSelection();
+      
+      if ((!$isRangeSelection(selection) || selection.isCollapsed()) && this.storedSelection) {
+        // Restore the stored selection
+        $setSelection(this.storedSelection.clone());
+        selection = $getSelection();
+      }
+      
+      if ($isRangeSelection(selection) && !selection.isCollapsed()) {
+        if (url) {
+          // Use $toggleLink which properly handles the selection context
+          $toggleLink(url);
+        }
+      }
+    });
+    
+    // Clear stored selection and reset state after use
+    this.storedSelection = null;
+    this.hasSelection.set(false);
+    this.isInteractingWithToolbar = false;
   }
 
   setContent(content: string): void {

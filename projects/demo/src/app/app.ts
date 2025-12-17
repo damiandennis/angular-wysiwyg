@@ -1,11 +1,13 @@
-import { Component, signal, ViewChild } from '@angular/core';
+import { Component, signal, ViewChild, ViewEncapsulation } from '@angular/core';
 import { LexicalEditorComponent, EditorConfig, TextFormatState } from 'ngx-lexical-editor';
 
 @Component({
   selector: 'app-root',
   imports: [LexicalEditorComponent],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
+  styleUrl: './app.scss',
+  // Testing Shadow DOM - this requires the polyfill/workaround in the editor
+  encapsulation: ViewEncapsulation.ShadowDom
 })
 export class App {
   @ViewChild(LexicalEditorComponent) editor!: LexicalEditorComponent;

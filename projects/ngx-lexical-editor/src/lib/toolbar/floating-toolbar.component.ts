@@ -5,10 +5,8 @@ import {
   EventEmitter,
   signal,
   computed,
-  ChangeDetectionStrategy,
-  HostListener,
+  ChangeDetectionStrategy
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TextFormatState } from '../editor/lexical-editor.component';
 
@@ -20,7 +18,7 @@ export interface FormatCommand {
 @Component({
   selector: 'ngx-floating-toolbar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
@@ -28,6 +26,7 @@ export interface FormatCommand {
       [style.top.px]="position.top"
       [style.left.px]="position.left"
       (mousedown)="onToolbarMouseDown($event)"
+      (mouseup)="onToolbarMouseUp($event)"
     >
       <!-- Text Format Buttons -->
       <div class="btn-group btn-group-sm me-2">
@@ -545,6 +544,8 @@ export class FloatingToolbarComponent {
   @Output() formatCommand = new EventEmitter<FormatCommand>();
   @Output() insertText = new EventEmitter<string>();
   @Output() insertLink = new EventEmitter<string>();
+  @Output() toolbarMouseDown = new EventEmitter<void>();
+  @Output() toolbarMouseUp = new EventEmitter<void>();
 
   openDropdown = signal<string | null>(null);
   linkUrl = signal('');
@@ -617,11 +618,28 @@ export class FloatingToolbarComponent {
   }
 
   onToolbarMouseDown(event: MouseEvent): void {
-    // Prevent default to avoid losing selection, but allow clicks on inputs/buttons
+    // Notify parent that we're interacting with toolbar
+    this.toolbarMouseDown.emit();
+    
+    // ALWAYS prevent default to avoid losing the editor's selection
+    // This is critical for Shadow DOM where selection is fragile
+    event.preventDefault();
+    
+    // If clicking on an input, manually focus it after preventing default
     const target = event.target as HTMLElement;
-    if (target.tagName !== 'INPUT' && target.tagName !== 'BUTTON') {
-      event.preventDefault();
+    if (target.tagName === 'INPUT') {
+      // Use setTimeout to focus after the mousedown event completes
+      setTimeout(() => {
+        (target as HTMLInputElement).focus();
+      }, 0);
     }
+  }
+
+  onToolbarMouseUp(event: MouseEvent): void {
+    // Small delay to ensure click handlers complete first
+    setTimeout(() => {
+      this.toolbarMouseUp.emit();
+    }, 100);
   }
 
   toggleDropdown(dropdown: string): void {
