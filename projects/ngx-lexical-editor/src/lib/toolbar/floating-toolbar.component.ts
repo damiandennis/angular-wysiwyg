@@ -22,9 +22,7 @@ export interface FormatCommand {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div 
-      class="floating-toolbar btn-toolbar"
-      [style.top.px]="position.top"
-      [style.left.px]="position.left"
+      class="editor-toolbar btn-toolbar"
       (mousedown)="onToolbarMouseDown($event)"
       (mouseup)="onToolbarMouseUp($event)"
     >
@@ -347,20 +345,14 @@ export interface FormatCommand {
     </div>
   `,
   styles: [`
-    .floating-toolbar {
-      position: absolute;
+    .editor-toolbar {
       display: flex;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       align-items: center;
       padding: 8px 12px;
-      background: #ffffff;
-      border: 1px solid #dee2e6;
-      border-radius: 6px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-      z-index: 1050;
-      transform: translateX(-50%);
-      gap: 0;
-      white-space: nowrap;
+      background: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+      gap: 4px;
     }
 
     .btn-group-sm > .btn {
@@ -612,7 +604,6 @@ export interface FormatCommand {
 })
 export class FloatingToolbarComponent {
   @Input() formatState!: TextFormatState;
-  @Input() position: { top: number; left: number } = { top: 0, left: 0 };
 
   @Output() formatCommand = new EventEmitter<FormatCommand>();
   @Output() insertText = new EventEmitter<string>();

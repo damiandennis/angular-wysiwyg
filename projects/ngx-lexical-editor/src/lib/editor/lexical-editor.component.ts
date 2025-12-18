@@ -83,12 +83,13 @@ export interface TextFormatState {
         [attr.contenteditable]="editable()"
         (mouseup)="onSelectionChange()"
         (keyup)="onSelectionChange()"
+        (focus)="onEditorFocus()"
+        (blur)="onEditorBlur()"
       ></div>
       
-      @if (showToolbar() && hasSelection()) {
+      @if (showToolbar() && isEditorActive()) {
         <ngx-floating-toolbar
           [formatState]="formatState()"
-          [position]="toolbarPosition()"
           (formatCommand)="executeFormatCommand($event)"
           (insertText)="insertText($event)"
           (insertLink)="insertLink($event)"
@@ -162,7 +163,9 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
   showToolbar = signal(true);
   hasSelection = signal(false);
   hasContent = signal(false);
-  toolbarPosition = signal({ top: 0, left: 0 });
+  isEditorFocused = signal(false);
+  
+  isEditorActive = computed(() => this.isEditorFocused() || this.hasSelection());
   
   formatState = signal<TextFormatState>({
     isBold: false,
@@ -592,7 +595,6 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
         this.hasSelection.set(true);
         this.storedSelection = selection.clone();
         this.updateFormatState(selection);
-        this.updateToolbarPosition();
       } else {
         this.hasSelection.set(false);
         this.storedSelection = null;
@@ -612,6 +614,34 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
    */
   onToolbarInteractionEnd(): void {
     this.isInteractingWithToolbar = false;
+  }
+
+  /**
+   * Called when the editor content area receives focus
+   */
+  onEditorFocus(): void {
+    this.isEditorFocused.set(true);
+    // Update format state even without selection
+    if (this.editor) {
+      this.editor.getEditorState().read(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          this.updateFormatState(selection);
+        }
+      });
+    }
+  }
+
+  /**
+   * Called when the editor content area loses focus
+   */
+  onEditorBlur(): void {
+    // Delay blur to allow toolbar clicks to complete
+    setTimeout(() => {
+      if (!this.isInteractingWithToolbar) {
+        this.isEditorFocused.set(false);
+      }
+    }, 150);
   }
 
   private updateFormatState(selection: ReturnType<typeof $getSelection>): void {
@@ -691,35 +721,6 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
     if (!element) return '';
     
     return window.getComputedStyle(element)[property as keyof CSSStyleDeclaration] as string;
-  }
-
-  private updateToolbarPosition(): void {
-    const selection = this.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const containerRect = this.editorContainerRef.nativeElement.getBoundingClientRect();
-
-    const toolbarWidth = 700; // Approximate toolbar width
-    const toolbarHeight = 50;
-    
-    // Calculate centered position
-    let left = rect.left - containerRect.left + (rect.width / 2);
-    
-    // Clamp to container bounds (accounting for transform: translateX(-50%))
-    const minLeft = toolbarWidth / 2 + 10;
-    const maxLeft = containerRect.width - (toolbarWidth / 2) - 10;
-    left = Math.max(minLeft, Math.min(left, maxLeft));
-    
-    // Ensure toolbar doesn't go above container
-    let top = rect.top - containerRect.top - toolbarHeight;
-    if (top < 5) {
-      // Show below selection instead
-      top = rect.bottom - containerRect.top + 10;
-    }
-
-    this.toolbarPosition.set({ top, left });
   }
 
   executeFormatCommand(command: { type: string; value?: string }): void {
