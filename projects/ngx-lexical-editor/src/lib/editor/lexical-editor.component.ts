@@ -33,6 +33,16 @@ import { registerRichText } from '@lexical/rich-text';
 import { $patchStyleText, $getSelectionStyleValueForProperty } from '@lexical/selection';
 import { mergeRegister, $getNearestNodeOfType } from '@lexical/utils';
 import { LinkNode, TOGGLE_LINK_COMMAND, $toggleLink } from '@lexical/link';
+import { 
+  ListNode, 
+  ListItemNode, 
+  INSERT_UNORDERED_LIST_COMMAND, 
+  INSERT_ORDERED_LIST_COMMAND,
+  REMOVE_LIST_COMMAND,
+  $isListNode,
+  insertList,
+  removeList
+} from '@lexical/list';
 import { FloatingToolbarComponent } from '../toolbar/floating-toolbar.component';
 
 export interface EditorConfig {
@@ -301,7 +311,7 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       onError: (error: Error) => {
         console.error(error);
       },
-      nodes: [LinkNode],
+      nodes: [LinkNode, ListNode, ListItemNode],
     };
 
     this.editor = createEditor(config);
@@ -319,6 +329,31 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
         TOGGLE_LINK_COMMAND,
         (payload: string | null) => {
           $toggleLink(payload);
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+      // Register list command handlers
+      this.editor.registerCommand(
+        INSERT_UNORDERED_LIST_COMMAND,
+        () => {
+          insertList(this.editor!, 'bullet');
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+      this.editor.registerCommand(
+        INSERT_ORDERED_LIST_COMMAND,
+        () => {
+          insertList(this.editor!, 'number');
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+      this.editor.registerCommand(
+        REMOVE_LIST_COMMAND,
+        () => {
+          removeList(this.editor!);
           return true;
         },
         COMMAND_PRIORITY_LOW,
@@ -596,6 +631,14 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       case 'underline':
       case 'strikethrough':
         this.editor.dispatchCommand(FORMAT_TEXT_COMMAND, command.type as TextFormatType);
+        setTimeout(() => this.onSelectionChange(), 0);
+        return;
+      case 'bulletList':
+        this.editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
+        setTimeout(() => this.onSelectionChange(), 0);
+        return;
+      case 'numberedList':
+        this.editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
         setTimeout(() => this.onSelectionChange(), 0);
         return;
     }

@@ -174,20 +174,35 @@ export interface FormatCommand {
         >☰</button>
       </div>
 
-      <!-- Spacing Dropdown -->
+      <!-- List Buttons -->
+      <div class="btn-group btn-group-sm me-2">
+        <button 
+          type="button"
+          class="btn btn-outline-secondary" 
+          (click)="onFormat('bulletList')"
+          title="Bullet List"
+        >•</button>
+        <button 
+          type="button"
+          class="btn btn-outline-secondary" 
+          (click)="onFormat('numberedList')"
+          title="Numbered List"
+        >1.</button>
+      </div>
+
+      <!-- Letter Spacing Dropdown -->
       <div class="btn-group btn-group-sm me-2">
         <div class="dropdown">
           <button 
             type="button"
             class="btn btn-outline-secondary dropdown-toggle"
-            (click)="toggleDropdown('spacing')"
-            title="Spacing Options"
+            (click)="toggleDropdown('letterSpacing')"
+            title="Letter Spacing"
           >
-            ¶
+            Aa
           </button>
-          @if (openDropdown() === 'spacing') {
-            <div class="dropdown-menu show spacing-menu">
-              <div class="dropdown-header">Letter Spacing</div>
+          @if (openDropdown() === 'letterSpacing') {
+            <div class="dropdown-menu show">
               @for (spacing of letterSpacingOptions; track spacing.value) {
                 <button 
                   type="button"
@@ -195,8 +210,24 @@ export interface FormatCommand {
                   (click)="onLetterSpacingChange(spacing.value)"
                 >{{ spacing.label }}</button>
               }
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-header">Line Height</div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Line Height Dropdown -->
+      <div class="btn-group btn-group-sm me-2">
+        <div class="dropdown">
+          <button 
+            type="button"
+            class="btn btn-outline-secondary dropdown-toggle"
+            (click)="toggleDropdown('lineHeight')"
+            title="Line Height"
+          >
+            ↕
+          </button>
+          @if (openDropdown() === 'lineHeight') {
+            <div class="dropdown-menu show">
               @for (lh of lineHeightOptions; track lh.value) {
                 <button 
                   type="button"
@@ -204,8 +235,24 @@ export interface FormatCommand {
                   (click)="onLineHeightChange(lh.value)"
                 >{{ lh.label }}</button>
               }
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-header">Paragraph Spacing</div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Paragraph Spacing Dropdown -->
+      <div class="btn-group btn-group-sm me-2">
+        <div class="dropdown">
+          <button 
+            type="button"
+            class="btn btn-outline-secondary dropdown-toggle"
+            (click)="toggleDropdown('paragraphSpacing')"
+            title="Paragraph Spacing"
+          >
+            ¶
+          </button>
+          @if (openDropdown() === 'paragraphSpacing') {
+            <div class="dropdown-menu show">
               @for (ps of paragraphSpacingOptions; track ps.value) {
                 <button 
                   type="button"
