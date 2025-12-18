@@ -190,6 +190,32 @@ export interface FormatCommand {
         >1.</button>
       </div>
 
+      <!-- Block Type Dropdown -->
+      <div class="btn-group btn-group-sm me-2">
+        <div class="dropdown">
+          <button 
+            type="button"
+            class="btn btn-sm btn-outline-secondary dropdown-toggle"
+            (click)="toggleDropdown('blockType')"
+            title="Block Type"
+          >
+            {{ getCurrentBlockTypeLabel() }}
+          </button>
+          @if (openDropdown() === 'blockType') {
+            <div class="dropdown-menu show">
+              @for (block of blockTypeOptions; track block.value) {
+                <button 
+                  type="button"
+                  class="dropdown-item"
+                  [class.active]="formatState.blockType === block.value"
+                  (click)="onBlockTypeChange(block.value)"
+                >{{ block.label }}</button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
       <!-- Letter Spacing Dropdown -->
       <div class="btn-group btn-group-sm me-2">
         <div class="dropdown">
@@ -635,6 +661,16 @@ export class FloatingToolbarComponent {
     { label: '32px', value: '32px' },
   ];
 
+  blockTypeOptions = [
+    { label: 'Paragraph', value: 'paragraph' },
+    { label: 'Heading 1', value: 'h1' },
+    { label: 'Heading 2', value: 'h2' },
+    { label: 'Heading 3', value: 'h3' },
+    { label: 'Heading 4', value: 'h4' },
+    { label: 'Heading 5', value: 'h5' },
+    { label: 'Heading 6', value: 'h6' },
+  ];
+
   commonEmojis = [
     '😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊',
     '😇', '🙂', '😉', '😍', '🥰', '😘', '😋', '😎',
@@ -662,6 +698,12 @@ export class FloatingToolbarComponent {
     const current = this.formatState?.fontFamily || 'Arial';
     const found = this.fontFamilies.find(f => current.includes(f.value.split(',')[0].replace(/"/g, '')));
     return found?.label || 'Arial';
+  }
+
+  getCurrentBlockTypeLabel(): string {
+    const current = this.formatState?.blockType || 'paragraph';
+    const found = this.blockTypeOptions.find(b => b.value === current);
+    return found?.label || 'Paragraph';
   }
 
   onToolbarMouseDown(event: MouseEvent): void {
@@ -740,6 +782,11 @@ export class FloatingToolbarComponent {
 
   onParagraphSpacingChange(value: string): void {
     this.formatCommand.emit({ type: 'paragraphSpacing', value });
+    this.closeDropdowns();
+  }
+
+  onBlockTypeChange(value: string): void {
+    this.formatCommand.emit({ type: 'blockType', value });
     this.closeDropdowns();
   }
 

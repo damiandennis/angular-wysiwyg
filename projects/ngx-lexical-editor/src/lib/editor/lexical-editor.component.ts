@@ -29,7 +29,7 @@ import {
   RangeSelection,
   COMMAND_PRIORITY_LOW,
 } from 'lexical';
-import { registerRichText } from '@lexical/rich-text';
+import { registerRichText, HeadingNode, $createHeadingNode, $isHeadingNode, QuoteNode, $createQuoteNode, $isQuoteNode } from '@lexical/rich-text';
 import { $patchStyleText, $getSelectionStyleValueForProperty } from '@lexical/selection';
 import { mergeRegister, $getNearestNodeOfType } from '@lexical/utils';
 import { LinkNode, TOGGLE_LINK_COMMAND, $toggleLink } from '@lexical/link';
@@ -67,6 +67,7 @@ export interface TextFormatState {
   paragraphSpacing: string;
   isLink: boolean;
   linkUrl: string;
+  blockType: string;
 }
 
 @Component({
@@ -178,6 +179,7 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
     paragraphSpacing: '0',
     isLink: false,
     linkUrl: '',
+    blockType: 'paragraph',
   });
 
   ngAfterViewInit(): void {
@@ -312,7 +314,7 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       onError: (error: Error) => {
         console.error(error);
       },
-      nodes: [LinkNode, ListNode, ListItemNode],
+      nodes: [LinkNode, ListNode, ListItemNode, HeadingNode, QuoteNode],
     };
 
     this.editor = createEditor(config);
@@ -627,6 +629,17 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       linkUrl = linkNode.getURL();
     }
 
+    // Determine block type
+    let blockType = 'paragraph';
+    const topLevelElement = anchorNode.getTopLevelElement();
+    if (topLevelElement) {
+      if ($isHeadingNode(topLevelElement)) {
+        blockType = topLevelElement.getTag(); // 'h1', 'h2', etc.
+      } else if ($isListNode(topLevelElement)) {
+        blockType = topLevelElement.getListType() === 'bullet' ? 'ul' : 'ol';
+      }
+    }
+
     // Get style values from Lexical selection
     const fontFamily = $getSelectionStyleValueForProperty(selection, 'font-family', 'Arial');
     const fontSize = $getSelectionStyleValueForProperty(selection, 'font-size', '16px');
@@ -650,6 +663,7 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       paragraphSpacing: this.getComputedStyle('marginBottom') || '0px',
       isLink,
       linkUrl,
+      blockType,
     });
 
     this.selectionChange.emit(this.formatState());
@@ -762,6 +776,9 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
         case 'paragraphSpacing':
           this.applyBlockStyle('marginBottom', command.value!);
           break;
+        case 'blockType':
+          this.applyBlockType(selection, command.value!);
+          break;
       }
     });
 
@@ -793,6 +810,37 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
         (blockElement.style as any)[property] = value;
       }
     }
+  }
+
+  private applyBlockType(selection: RangeSelection, blockType: string): void {
+    const anchorNode = selection.anchor.getNode();
+    const topLevelElement = anchorNode.getTopLevelElement();
+    
+    if (!topLevelElement) return;
+
+    // Get all children of the current block to preserve content
+    const children = topLevelElement.getChildren();
+    
+    let newBlock;
+    if (blockType === 'paragraph') {
+      newBlock = $createParagraphNode();
+    } else if (blockType.startsWith('h') && blockType.length === 2) {
+      // h1, h2, h3, h4, h5, h6
+      newBlock = $createHeadingNode(blockType as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6');
+    } else {
+      return; // Unknown block type
+    }
+
+    // Move all children to the new block
+    children.forEach(child => {
+      newBlock.append(child);
+    });
+
+    // Replace the old block with the new one
+    topLevelElement.replace(newBlock);
+    
+    // Restore selection to the new block
+    newBlock.selectEnd();
   }
 
   insertText(text: string): void {
