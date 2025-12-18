@@ -479,6 +479,58 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
           this.editor.update(() => {
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
+              // Check if we're at the beginning of a list item
+              const anchorOffset = selection.anchor.offset;
+              
+              if (anchorOffset === 0 && selection.isCollapsed()) {
+                let node = selection.anchor.getNode();
+                
+                // Traverse up to find list item
+                let listItemNode = null;
+                let currentNode: any = node;
+                while (currentNode) {
+                  if ($isListItemNode(currentNode)) {
+                    listItemNode = currentNode;
+                    break;
+                  }
+                  currentNode = currentNode.getParent ? currentNode.getParent() : null;
+                }
+                
+                if (listItemNode) {
+                  const listNode = listItemNode.getParent();
+                  if ($isListNode(listNode)) {
+                    // Check if this is the first item in the list
+                    const listItems = listNode.getChildren();
+                    const isFirstItem = listItems.length > 0 && listItems[0] === listItemNode;
+                    
+                    if (isFirstItem) {
+                      // Convert first list item to paragraph and insert before list
+                      const paragraph = $createParagraphNode();
+                      const textContent = listItemNode.getTextContent();
+                      if (textContent) {
+                        paragraph.append($createTextNode(textContent));
+                      }
+                      
+                      // Insert paragraph before the list
+                      listNode.insertBefore(paragraph);
+                      
+                      // Remove the first list item
+                      listItemNode.remove();
+                      
+                      // If list is now empty, remove it
+                      if (listNode.getChildrenSize() === 0) {
+                        listNode.remove();
+                      }
+                      
+                      // Select the paragraph
+                      paragraph.select();
+                      return;
+                    }
+                  }
+                }
+              }
+              
+              // Normal backspace
               selection.deleteCharacter(true);
             }
           });
