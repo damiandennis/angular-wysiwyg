@@ -40,6 +40,7 @@ import {
   INSERT_ORDERED_LIST_COMMAND,
   REMOVE_LIST_COMMAND,
   $isListNode,
+  $isListItemNode,
   insertList,
   removeList
 } from '@lexical/list';
@@ -428,6 +429,43 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
           this.editor.update(() => {
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
+              // Check if we're in an empty list item - if so, exit the list
+              let node = selection.anchor.getNode();
+              
+              // Traverse up to find list item
+              let listItemNode = null;
+              let currentNode: any = node;
+              while (currentNode) {
+                if ($isListItemNode(currentNode)) {
+                  listItemNode = currentNode;
+                  break;
+                }
+                currentNode = currentNode.getParent ? currentNode.getParent() : null;
+              }
+              
+              if (listItemNode && listItemNode.getTextContent().trim() === '') {
+                // Empty list item - remove it and exit the list
+                const listNode = listItemNode.getParent();
+                if ($isListNode(listNode)) {
+                  // Remove the empty list item
+                  listItemNode.remove();
+                  
+                  // If list is now empty, remove it too
+                  if (listNode.getChildrenSize() === 0) {
+                    const paragraph = $createParagraphNode();
+                    listNode.replace(paragraph);
+                    paragraph.select();
+                  } else {
+                    // Insert a paragraph after the list and select it
+                    const paragraph = $createParagraphNode();
+                    listNode.insertAfter(paragraph);
+                    paragraph.select();
+                  }
+                  return;
+                }
+              }
+              
+              // Normal case - insert paragraph/line break
               selection.insertParagraph();
             }
           });

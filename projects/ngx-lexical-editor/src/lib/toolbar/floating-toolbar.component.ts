@@ -73,7 +73,7 @@ export interface FormatCommand {
         <div class="dropdown">
           <button 
             type="button"
-            class="btn btn-outline-secondary dropdown-toggle"
+            class="btn btn-sm btn-outline-secondary dropdown-toggle"
             (click)="toggleDropdown('fontFamily')"
           >
             {{ getCurrentFontLabel() }}
@@ -98,7 +98,7 @@ export interface FormatCommand {
         <div class="dropdown">
           <button 
             type="button"
-            class="btn btn-outline-secondary dropdown-toggle"
+            class="btn btn-sm btn-outline-secondary dropdown-toggle"
             (click)="toggleDropdown('fontSize')"
           >
             {{ selectedFontSize() }}
@@ -195,7 +195,7 @@ export interface FormatCommand {
         <div class="dropdown">
           <button 
             type="button"
-            class="btn btn-outline-secondary dropdown-toggle"
+            class="btn btn-sm btn-outline-secondary dropdown-toggle"
             (click)="toggleDropdown('letterSpacing')"
             title="Letter Spacing"
           >
@@ -220,7 +220,7 @@ export interface FormatCommand {
         <div class="dropdown">
           <button 
             type="button"
-            class="btn btn-outline-secondary dropdown-toggle"
+            class="btn btn-sm btn-outline-secondary dropdown-toggle"
             (click)="toggleDropdown('lineHeight')"
             title="Line Height"
           >
@@ -245,7 +245,7 @@ export interface FormatCommand {
         <div class="dropdown">
           <button 
             type="button"
-            class="btn btn-outline-secondary dropdown-toggle"
+            class="btn btn-sm btn-outline-secondary dropdown-toggle"
             (click)="toggleDropdown('paragraphSpacing')"
             title="Paragraph Spacing"
           >
