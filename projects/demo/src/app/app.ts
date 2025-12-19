@@ -12,9 +12,22 @@ import { LexicalEditorComponent, EditorConfig, TextFormatState } from 'ngx-lexic
 export class App {
   @ViewChild(LexicalEditorComponent) editor!: LexicalEditorComponent;
 
+  sampleHtml = `
+    <h1>Welcome to the WYSIWYG Editor</h1>
+    <p>This is a <strong>bold</strong> and <em>italic</em> text example.</p>
+    <h2>Features</h2>
+    <ul>
+      <li>Rich text formatting</li>
+      <li>Headings (H1-H6)</li>
+      <li>Lists (bullet and numbered)</li>
+    </ul>
+    <p>Try selecting text to see the toolbar appear!</p>
+  `;
+
   editorConfig: EditorConfig = {
     placeholder: 'Start writing your content here...',
     editable: true,
+    initialHtml: '',
   };
 
   content = signal('');
@@ -45,6 +58,13 @@ export class App {
   insertSampleText(): void {
     if (this.editor) {
       this.editor.setContent('This is some sample text to demonstrate the WYSIWYG editor capabilities. Select this text to see the floating toolbar appear!');
+    }
+  }
+
+  loadSampleHtml(): void {
+    if (this.editor) {
+      this.editor.setHtmlContent(this.sampleHtml);
+      console.log('Loaded sample HTML');
     }
   }
 }

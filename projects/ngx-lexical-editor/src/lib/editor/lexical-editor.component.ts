@@ -907,23 +907,38 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
    * This properly parses the HTML and converts it to Lexical nodes.
    */
   setHtmlContent(html: string): void {
-    if (!this.editor) return;
+    if (!this.editor) {
+      console.warn('Editor not initialized');
+      return;
+    }
 
     this.editor.update(() => {
       const root = $getRoot();
+      
+      // First select all content
       root.clear();
 
       // Create a DOM parser to convert HTML string to DOM nodes
       const parser = new DOMParser();
-      const dom = parser.parseFromString(html, 'text/html');
+      const dom = parser.parseFromString(`<body>${html}</body>`, 'text/html');
       
       // Convert DOM nodes to Lexical nodes
       const nodes = $generateNodesFromDOM(this.editor!, dom);
       
-      // Append all generated nodes to the root
-      nodes.forEach(node => {
-        root.append(node);
-      });
+      // Filter out any invalid nodes and append valid ones
+      if (nodes.length > 0) {
+        nodes.forEach(node => {
+          if (node) {
+            root.append(node);
+          }
+        });
+      }
+
+      // If no nodes were generated or root is empty, create at least one paragraph
+      if (root.getChildrenSize() === 0) {
+        const paragraph = $createParagraphNode();
+        root.append(paragraph);
+      }
     });
   }
 
