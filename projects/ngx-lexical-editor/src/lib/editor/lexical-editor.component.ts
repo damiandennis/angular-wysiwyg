@@ -22,7 +22,9 @@ import {
   LexicalEditor, 
   EditorState, 
   FORMAT_TEXT_COMMAND, 
+  FORMAT_ELEMENT_COMMAND,
   TextFormatType, 
+  ElementFormatType,
   $createParagraphNode, 
   $createTextNode,
   $setSelection,
@@ -690,14 +692,21 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       linkUrl = linkNode.getURL();
     }
 
-    // Determine block type
+    // Determine block type and text alignment
     let blockType = 'paragraph';
+    let textAlign = 'left';
     const topLevelElement = anchorNode.getTopLevelElement();
     if (topLevelElement) {
       if ($isHeadingNode(topLevelElement)) {
         blockType = topLevelElement.getTag(); // 'h1', 'h2', etc.
       } else if ($isListNode(topLevelElement)) {
         blockType = topLevelElement.getListType() === 'bullet' ? 'ul' : 'ol';
+      }
+      
+      // Get text alignment from element format
+      const formatType = topLevelElement.getFormatType();
+      if (formatType) {
+        textAlign = formatType;
       }
     }
 
@@ -718,7 +727,7 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       fontSize: fontSize || '16px',
       fontColor: fontColor || '#000000',
       backgroundColor: backgroundColor || 'transparent',
-      textAlign: this.getComputedStyle('textAlign') || 'left',
+      textAlign: textAlign,
       letterSpacing: letterSpacing || 'normal',
       lineHeight: lineHeight || '1.6',
       paragraphSpacing: this.getComputedStyle('marginBottom') || '0px',
@@ -777,6 +786,10 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
         this.editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
         setTimeout(() => this.onSelectionChange(), 0);
         return;
+      case 'textAlign':
+        this.editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, command.value as ElementFormatType);
+        setTimeout(() => this.onSelectionChange(), 0);
+        return;
     }
 
     this.editor.update(() => {
@@ -801,9 +814,6 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
           break;
         case 'lineHeight':
           $patchStyleText(selection, { 'line-height': command.value! });
-          break;
-        case 'textAlign':
-          this.applyBlockStyle('textAlign', command.value!);
           break;
         case 'paragraphSpacing':
           this.applyBlockStyle('marginBottom', command.value!);
