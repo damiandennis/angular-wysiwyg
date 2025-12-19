@@ -1,5 +1,5 @@
 import { Component, signal, ViewChild, ViewEncapsulation } from '@angular/core';
-import { LexicalEditorComponent, EditorConfig, TextFormatState } from 'ngx-lexical-editor';
+import { LexicalEditorComponent, EditorConfig, TextFormatState, EditorContent } from 'ngx-lexical-editor';
 
 @Component({
   selector: 'app-root',
@@ -27,37 +27,53 @@ export class App {
   editorConfig: EditorConfig = {
     placeholder: 'Start writing your content here...',
     editable: true,
-    initialHtml: '',
   };
 
   content = signal('');
   formatState = signal<TextFormatState | null>(null);
+  savedContent = signal<EditorContent | null>(null); // Combined content storage
 
   onContentChange(content: string): void {
     this.content.set(content);
+  }
+
+  // Listen to combined content changes
+  onEditorContentChange(content: EditorContent): void {
+    console.log('Content changed:', {
+      textLength: content.text.length,
+      htmlLength: content.html.length,
+      stateLength: content.state.length
+    });
   }
 
   onSelectionChange(formatState: TextFormatState): void {
     this.formatState.set(formatState);
   }
 
-  getHtmlContent(): void {
+  // Save both HTML and state together
+  saveContent(): void {
     if (this.editor) {
-      const html = this.editor.getHtmlContent();
-      console.log('HTML Content:', html);
-      alert('Check console for HTML content');
+      const content = this.editor.getEditorContent();
+      this.savedContent.set(content);
+      console.log('Saved Content:', content);
+      alert(`Saved! HTML: ${content.html.length} chars, State: ${content.state.length} chars`);
+    }
+  }
+
+  // Restore from saved content (uses state for full fidelity)
+  restoreContent(): void {
+    const content = this.savedContent();
+    if (this.editor && content) {
+      this.editor.setEditorContent(content);
+      console.log('Content restored');
+    } else {
+      alert('No saved content to restore. Save first!');
     }
   }
 
   clearContent(): void {
     if (this.editor) {
       this.editor.setContent('');
-    }
-  }
-
-  insertSampleText(): void {
-    if (this.editor) {
-      this.editor.setContent('This is some sample text to demonstrate the WYSIWYG editor capabilities. Select this text to see the floating toolbar appear!');
     }
   }
 

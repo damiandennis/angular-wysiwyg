@@ -51,7 +51,18 @@ export interface EditorConfig {
   placeholder?: string;
   initialContent?: string;
   initialHtml?: string;
+  initialState?: string; // JSON serialized editor state - best for complete restoration
   editable?: boolean;
+}
+
+/**
+ * Combined content format for saving/loading editor content.
+ * The state preserves all formatting, while HTML is useful for display.
+ */
+export interface EditorContent {
+  html: string;   // HTML representation (good for display, may lose some formatting)
+  state: string;  // JSON state (preserves ALL formatting - use for restore)
+  text: string;   // Plain text content
 }
 
 export interface TextFormatState {
@@ -146,7 +157,8 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
     this._config.set(value);
   }
 
-  @Output() contentChange = new EventEmitter<string>();
+  @Output() contentChange = new EventEmitter<string>(); // Emits plain text
+  @Output() editorContentChange = new EventEmitter<EditorContent>(); // Emits HTML, state, and text
   @Output() selectionChange = new EventEmitter<TextFormatState>();
 
   private _config = signal<EditorConfig>({});
@@ -568,10 +580,13 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       });
     }
 
-    // Set initial content if provided (prefer HTML over plain text)
+    // Set initial content if provided (prefer JSON state > HTML > plain text)
+    const initialState = this._config().initialState;
     const initialHtml = this._config().initialHtml;
     const initialContent = this._config().initialContent;
-    if (initialHtml) {
+    if (initialState) {
+      this.setEditorState(initialState);
+    } else if (initialHtml) {
       this.setHtmlContent(initialHtml);
     } else if (initialContent) {
       this.setContent(initialContent);
@@ -583,7 +598,18 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       const root = $getRoot();
       const textContent = root.getTextContent();
       this.hasContent.set(textContent.length > 0);
+      
+      // Emit plain text for backward compatibility
       this.contentChange.emit(textContent);
+      
+      // Emit combined content (HTML, state, text)
+      const html = $generateHtmlFromNodes(this.editor!);
+      const state = JSON.stringify(editorState.toJSON());
+      this.editorContentChange.emit({
+        html,
+        state,
+        text: textContent
+      });
     });
   }
 
@@ -974,6 +1000,76 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
   getRawHtmlContent(): string {
     if (!this.editor) return '';
     return this.editorContentRef.nativeElement.innerHTML;
+  }
+
+  /**
+   * Get the editor state as a JSON string.
+   * This is the BEST method for saving content as it preserves ALL formatting.
+   */
+  getEditorState(): string {
+    if (!this.editor) return '';
+    return JSON.stringify(this.editor.getEditorState().toJSON());
+  }
+
+  /**
+   * Set the editor state from a JSON string.
+   * This is the BEST method for loading content as it preserves ALL formatting.
+   */
+  setEditorState(stateJson: string): void {
+    if (!this.editor) {
+      console.warn('Editor not initialized');
+      return;
+    }
+
+    try {
+      const parsedState = this.editor.parseEditorState(stateJson);
+      this.editor.setEditorState(parsedState);
+    } catch (error) {
+      console.error('Failed to parse editor state:', error);
+    }
+  }
+
+  /**
+   * Get all content formats at once (HTML, state, and text).
+   * Recommended for saving to a database.
+   */
+  getEditorContent(): EditorContent {
+    if (!this.editor) {
+      return { html: '', state: '', text: '' };
+    }
+
+    let content: EditorContent = { html: '', state: '', text: '' };
+    
+    this.editor.getEditorState().read(() => {
+      const root = $getRoot();
+      content = {
+        html: $generateHtmlFromNodes(this.editor!),
+        state: JSON.stringify(this.editor!.getEditorState().toJSON()),
+        text: root.getTextContent()
+      };
+    });
+    
+    return content;
+  }
+
+  /**
+   * Load content from an EditorContent object.
+   * Uses state for full restoration, falls back to HTML if state is empty.
+   */
+  setEditorContent(content: EditorContent): void {
+    if (!this.editor) {
+      console.warn('Editor not initialized');
+      return;
+    }
+
+    // Prefer state (full fidelity) over HTML
+    if (content.state) {
+      this.setEditorState(content.state);
+    } else if (content.html) {
+      this.setHtmlContent(content.html);
+    } else if (content.text) {
+      this.setContent(content.text);
+    }
   }
 
   focus(): void {

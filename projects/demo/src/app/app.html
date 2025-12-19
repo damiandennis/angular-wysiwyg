@@ -12,11 +12,11 @@
           <button class="btn btn-primary" (click)="loadSampleHtml()">
             Load Sample HTML
           </button>
-          <button class="btn btn-secondary" (click)="insertSampleText()">
-            Insert Sample Text
+          <button class="btn btn-success" (click)="saveContent()">
+            Save
           </button>
-          <button class="btn btn-secondary" (click)="getHtmlContent()">
-            Get HTML
+          <button class="btn btn-info" (click)="restoreContent()">
+            Restore
           </button>
           <button class="btn btn-danger" (click)="clearContent()">
             Clear
@@ -28,6 +28,7 @@
         <ngx-lexical-editor
           [config]="editorConfig"
           (contentChange)="onContentChange($event)"
+          (editorContentChange)="onEditorContentChange($event)"
           (selectionChange)="onSelectionChange($event)"
         />
       </div>
