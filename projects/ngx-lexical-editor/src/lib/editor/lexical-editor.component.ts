@@ -44,11 +44,13 @@ import {
   insertList,
   removeList
 } from '@lexical/list';
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
 import { FloatingToolbarComponent } from '../toolbar/floating-toolbar.component';
 
 export interface EditorConfig {
   placeholder?: string;
   initialContent?: string;
+  initialHtml?: string;
   editable?: boolean;
 }
 
@@ -566,9 +568,12 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
       });
     }
 
-    // Set initial content if provided
+    // Set initial content if provided (prefer HTML over plain text)
+    const initialHtml = this._config().initialHtml;
     const initialContent = this._config().initialContent;
-    if (initialContent) {
+    if (initialHtml) {
+      this.setHtmlContent(initialHtml);
+    } else if (initialContent) {
       this.setContent(initialContent);
     }
   }
@@ -897,6 +902,31 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  /**
+   * Set the editor content from an HTML string.
+   * This properly parses the HTML and converts it to Lexical nodes.
+   */
+  setHtmlContent(html: string): void {
+    if (!this.editor) return;
+
+    this.editor.update(() => {
+      const root = $getRoot();
+      root.clear();
+
+      // Create a DOM parser to convert HTML string to DOM nodes
+      const parser = new DOMParser();
+      const dom = parser.parseFromString(html, 'text/html');
+      
+      // Convert DOM nodes to Lexical nodes
+      const nodes = $generateNodesFromDOM(this.editor!, dom);
+      
+      // Append all generated nodes to the root
+      nodes.forEach(node => {
+        root.append(node);
+      });
+    });
+  }
+
   getContent(): string {
     if (!this.editor) return '';
 
@@ -908,7 +938,25 @@ export class LexicalEditorComponent implements AfterViewInit, OnDestroy {
     return content;
   }
 
+  /**
+   * Get the editor content as an HTML string.
+   * This properly serializes the Lexical nodes to HTML.
+   */
   getHtmlContent(): string {
+    if (!this.editor) return '';
+    
+    let html = '';
+    this.editor.getEditorState().read(() => {
+      html = $generateHtmlFromNodes(this.editor!);
+    });
+    return html;
+  }
+
+  /**
+   * Get the raw HTML from the editor's DOM.
+   * This returns the actual rendered HTML which may include additional styling.
+   */
+  getRawHtmlContent(): string {
     if (!this.editor) return '';
     return this.editorContentRef.nativeElement.innerHTML;
   }
